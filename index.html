@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+
+
+  <!-- إعدادات تطبيق PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0c2233">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2965/2965300.png">
+
+
+
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+
+
+
+
+
+<title>لوحة الأدمن - مُنشئ النماذج</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--ink:#0c2233;--paper:#eef3f6;--card:#fff;--line:#d3dde4;--mute:#5b6f7d;--flame:#0a6fb0;--ember:#f2a516;--ok:#14805f;--bad:#c23b3b;--r:14px}
+@media(prefers-color-scheme:dark){:root{--ink:#e7eff5;--paper:#0a1722;--card:#112636;--line:#223a4c;--mute:#8da4b4;--flame:#4fb0ee;--ember:#f5b53a;--ok:#3cc596;--bad:#ef7a7a}}
+*{box-sizing:border-box;margin:0}
+html{direction:rtl;font-size:15px}
+body{font-family:'Segoe UI','Noto Sans Arabic',Tahoma,Arial,sans-serif;background:var(--paper);color:var(--ink);line-height:1.7;min-height:100vh;-webkit-tap-highlight-color:transparent;padding-bottom:2rem}
+:focus-visible{outline:3px solid var(--ember);outline-offset:2px}
+button,input,select{font:inherit;color:inherit}
+.btn{border:0;border-radius:12px;padding:.8rem 1.2rem;font-weight:700;background:var(--flame);color:#fff;cursor:pointer;min-height:48px;transition:transform .12s;display:inline-flex;align-items:center;justify-content:center;gap:.5rem}
+.btn:active{transform:scale(.97)}.btn:disabled{opacity:.55}
+.btn.ghost{background:transparent;color:var(--flame);border:2px solid var(--flame)}
+.btn.danger{background:var(--bad)}
+.btn.small{padding:.4rem .8rem;min-height:36px;font-size:.85rem;border-radius:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:1.1rem;margin-bottom:1rem}
+.tests{list-style:none;padding:0;display:grid;gap:.5rem;margin-top:1rem}
+.tests li{display:grid;grid-template-columns:1.6rem 1fr;gap:.1rem .5rem;padding:.6rem .8rem;border-radius:12px;background:var(--paper);border-inline-start:5px solid var(--line)}
+.tests li small{grid-column:2;color:var(--mute)}
+.tests li.ok{border-color:var(--ok)}.tests li.ok b{color:var(--ok)}
+.tests li.bad{border-color:var(--bad)}.tests li.bad b{color:var(--bad)}
+.top{background:#0c2233;color:#e7eff5;padding:1.1rem 1rem 1.6rem;border-bottom:6px solid var(--ember)}
+.top>div{max-width:1200px;margin:auto;display:flex;align-items:center;gap:.8rem}
+.top svg{width:42px;height:42px;flex:none}
+.top h1{font-size:1.35rem;line-height:1.2}.top p{font-size:.85rem;color:#9db6c8}
+main{max-width:1200px;margin:-.9rem auto 2rem;padding:0 1rem}
+.actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem; align-items:center;}
+/* Template Builder Layout */
+.builder-layout{display:grid;grid-template-columns:300px 1fr;gap:1rem;margin-top:1rem;}
+@media(max-width:768px){.builder-layout{grid-template-columns:1fr;}}
+.sidebar{background:var(--paper);padding:1rem;border-radius:12px;border:1px solid var(--line);height:fit-content}
+.sidebar h3{font-size:1rem;margin-bottom:.8rem;border-bottom:2px solid var(--line);padding-bottom:.4rem}
+.col-item{display:flex;align-items:center;gap:.4rem;background:var(--card);padding:.4rem .6rem;border-radius:8px;border:1px solid var(--line);margin-bottom:.4rem;cursor:grab;transition:background .2s}
+.col-item:active{cursor:grabbing}
+.col-item.dragging{opacity:.5;background:var(--line)}
+.col-item input[type="checkbox"]{width:20px;height:20px;cursor:pointer;flex-shrink:0}
+.col-item input[type="text"]{flex:1;border:1px solid transparent;background:transparent;padding:.2rem;border-radius:4px;min-width:50px;font-weight:600;font-size:.9rem}
+.col-item input[type="text"]:focus{background:var(--paper);border-color:var(--flame);outline:none}
+.col-item .drag-handle{color:var(--mute);font-size:1.2rem;cursor:grab;user-select:none}
+.table-wrap{overflow:auto;max-height:500px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:.85rem}
+th,td{border:1px solid var(--line);padding:.4rem .5rem;text-align:right;white-space:nowrap}
+th{background:var(--paper);position:sticky;top:0;z-index:1;font-weight:700}
+td[contenteditable="true"]{cursor:text}
+td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(10,111,176,0.05)}
+.template-controls{display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap}
+.template-controls select{flex:1;padding:.5rem;border-radius:8px;border:1px solid var(--line);background:var(--card)}
+</style>
+</head>
+<body>
+<header class="top"><div>
+<svg viewBox="0 0 48 48"><path d="M24 3c3 9 14 13 14 26a14 14 0 0 1-28 0c0-6 3-9 6-12 0 5 3 7 5 7-2-8 0-15 3-21z" fill="#f2a516"/><path d="M24 24c2 4 7 6 7 12a7 7 0 0 1-14 0c0-4 4-6 7-12z" fill="#0a6fb0"/></svg>
+<span><h1>لوحة الأدمن - مُنشئ النماذج</h1><p>استخراج، ترتيب، تعديل، وتصدير البيانات باحترافية</p></span>
+</div></header>
+
+<main>
+  <section class="card">
+    <h2>1. رفع الملفات</h2>
+    <div class="actions">
+      <button class="btn" onclick="pdfIn.click()">ملفات PDF</button>
+      <button class="btn" onclick="xlsIn.click()">ملفات Excel</button>
+      <button class="btn ghost" id="showPreviewBtn" disabled>عرض البيانات</button>
+    </div>
+    <input type="file" id="pdfIn" accept=".pdf" multiple hidden>
+    <input type="file" id="xlsIn" accept=".xlsx,.xls,.csv" multiple hidden>
+    <ul class="tests" id="logList"></ul>
+  </section>
+
+  <section class="card" id="previewSection" style="display:none;">
+    <h2>2. مُنشئ النموذج (Template Builder)</h2>
+    <p class="mute" style="margin-bottom:1rem;">اسحب الأعمدة لترتيبها، عدّل أسمائها، أضف أعمدة جديدة، ثم احفظ النموذج.</p>
+    
+    <div class="template-controls">
+      <select id="templateSelect"><option value="">-- اختر نموذج محفوظ --</option></select>
+      <button class="btn ghost small" id="saveTemplateBtn">حفظ كنموذج</button>
+      <button class="btn danger small" id="deleteTemplateBtn">حذف النموذج</button>
+      <button class="btn small" id="addNewColBtn" style="background:var(--ok);">+ إضافة عمود جديد</button>
+    </div>
+
+    <div class="builder-layout">
+      <div class="sidebar">
+        <h3>الأعمدة (اسحب للترتيب)</h3>
+        <div id="columnControls"></div>
+      </div>
+      
+      <div>
+        <div class="table-wrap">
+          <table id="previewTable">
+            <thead id="previewHead"></thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button class="btn" id="exportExcelBtn">تحميل Excel</button>
+          <button class="btn ghost" id="exportCsvBtn" style="border-color:var(--ok);color:var(--ok);">تحميل CSV</button>
+          <button class="btn danger" id="discardBtn" style="margin-inline-start:auto;">إلغاء البيانات</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  // =====================================================================
+  // ⚙️ إعدادات المعرّف الفريد (Unique ID) - يمكنك تعديلها من هنا
+  // =====================================================================
+  const UNIQUE_ID_COLUMNS = ['محافظة', 'منطقة', 'يومية', 'قطاع', 'بلوك', 'عمارة', 'شقة', 'فرعي'];
+  const UNIQUE_ID_SEPARATOR = '-';
+  const UNIQUE_ID_HEADER = 'المعرّف الفريد';
+  // =====================================================================
+
+  const IN_AR = '٠١٢٣٤٥٦٧٨٩';
+  const toLatin = s => String(s ?? '').replace(/[٠-٩]/g, d => IN_AR.indexOf(d));
+  const clean = s => String(s ?? '').normalize('NFKC').replace(/[\u202A-\u202E\u200E\u200F\uFEFF\u00A0\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  let rawData = [];
+  let activeColumns = [];
+  let savedTemplates = JSON.parse(localStorage.getItem('appTemplates') || '{}');
+
+  const $ = id => document.getElementById(id);
+  const log = (msg, type = 'ok') => {
+    const li = document.createElement('li');
+    li.className = type;
+    li.innerHTML = `<b>${type === 'ok' ? '✓' : '✕'}</b><span>${msg}</span>`;
+    $('logList').appendChild(li);
+  };
+  const clearLogs = () => $('logList').innerHTML = '';
+
+  const loadPdfWorker = () => {
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+  };
+
+  const BASE_COLS = ['القيمة', 'العدد', 'شهر الإصدار', 'من', 'محافظة', 'منطقة', 'يومية', 'قطاع', 'بلوك', 'عمارة', 'شقة', 'فرعي', 'اسم العميل', 'المسلسل', UNIQUE_ID_HEADER];
+
+  // --- دوال القراءة والمعالجة ---
+  async function readPdf(file) {
+    loadPdfWorker();
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    let allRows = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const textContent = await page.getTextContent();
+      const items = textContent.items.filter(i => i.str.trim()).map(i => ({ str: clean(i.str), x: i.transform[4], y: i.transform[5], w: i.width, h: Math.abs(i.height) || 10 }));
+      const rows = [];
+      for (const item of items) {
+        let row = rows.find(r => Math.abs(r.y - item.y) <= item.h * 0.8);
+        if (!row) { row = { y: item.y, items: [] }; rows.push(row); }
+        row.items.push(item);
+      }
+      for (const row of rows) {
+        row.items.sort((a, b) => a.x - b.x);
+        const cells = [];
+        for (const item of row.items) {
+          let cell = cells.find(c => Math.abs(c.x2 - item.x) < item.h * 1.5);
+          if (!cell) { cell = { text: '', x1: item.x, x2: item.x + item.w }; cells.push(cell); }
+          cell.text += ' ' + item.str;
+          cell.x2 = Math.max(cell.x2, item.x + item.w);
+        }
+        const texts = cells.map(c => toLatin(clean(c.text))).filter(Boolean);
+        if (texts.length < 2) continue;
+        if (texts.some(t => t.includes('اسم العميل')) || texts.some(t => t.includes('بلوك'))) continue;
+        allRows.push(texts);
+      }
+    }
+    return { rows: allRows };
+  }
+
+  async function readExcel(file) {
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    let allHeaders = [];
+    let allRows = [];
+    for (const sheetName of wb.SheetNames) {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
+      const headerIndex = rows.findIndex(r => r.some(c => String(c).includes('اسم') || String(c).includes('بلوك') || String(c).includes('شقة')));
+      if (headerIndex === -1) continue;
+      const headers = rows[headerIndex].map(c => toLatin(clean(c)));
+      allHeaders = headers;
+      const dataRows = rows.slice(headerIndex + 1).map(r => {
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = toLatin(clean(r[i] || '')));
+        return obj;
+      });
+      allRows = allRows.concat(dataRows);
+    }
+    return { headers: allHeaders, rows: allRows };
+  }
+
+  function cleanAndSplit(rows) {
+    const result = [];
+    for (const row of rows) {
+      if (!Array.isArray(row)) continue;
+      const rowStr = row.join(' ');
+      if (rowStr.includes('Petroleum') || rowStr.includes('شركة') || rowStr.includes('صفحة') || rowStr.includes('الإجمالي')) continue;
+
+      let cvsParts = null; let cvsIndex = -1;
+      for (let i = 0; i < row.length; i++) {
+        const val = String(row[i] || '').trim();
+        if (!val) continue;
+        const parts = val.split(/\s+/);
+        if (parts.length >= 10 && parts.slice(0, 10).every(p => /^\d+$/.test(p))) { cvsParts = parts; cvsIndex = i; break; }
+      }
+
+      let value = '', count = '', name = '', serial = '';
+      if (row.length >= 4) {
+        value = String(row[0] || '').trim(); count = String(row[1] || '').trim();
+        const lastCell = String(row[row.length - 1] || '').trim();
+        const lastIsNumber = /^\d+$/.test(lastCell);
+        const startNameIdx = cvsIndex >= 0 ? cvsIndex + 1 : 3;
+        const nameParts = [];
+        for (let i = startNameIdx; i < row.length; i++) {
+          if (lastIsNumber && i === row.length - 1) { serial = lastCell; continue; }
+          const v = String(row[i] || '').trim();
+          if (v && !/^\d+$/.test(v)) nameParts.push(v);
+        }
+        name = nameParts.join(' ').trim();
+        if (!name && row[3]) name = String(row[3] || '').trim();
+        if (!serial) {
+          for (let i = cvsIndex + 1; i < row.length; i++) {
+            const v = String(row[i] || '').trim();
+            if (/^\d+$/.test(v) && v.length <= 5) { serial = v; break; }
+          }
+        }
+      } else if (row.length === 3) { value = String(row[0] || '').trim(); count = String(row[1] || '').trim(); }
+      else if (row.length === 2) { value = String(row[0] || '').trim(); }
+      if (!cvsParts && !name && !value) continue;
+
+      const parts = cvsParts || [];
+      const newRow = {
+        'القيمة': value, 'العدد': count, 'شهر الإصدار': parts[0] || '', 'من': parts[1] || '', 'محافظة': parts[2] || '',
+        'منطقة': parts[3] || '', 'يومية': parts[4] || '', 'قطاع': parts[5] || '', 'بلوك': parts[6] || '',
+        'عمارة': parts[7] || '', 'شقة': parts[8] || '', 'فرعي': parts[9] || '', 'اسم العميل': name, 'المسلسل': serial
+      };
+      const fr = newRow['فرعي'];
+      if (!fr || String(fr).trim() === '' || String(fr).toLowerCase() === 'null') continue;
+
+      // توليد المعرّف الفريد هنا
+      newRow[UNIQUE_ID_HEADER] = generateUniqueId(newRow);
+      
+      result.push(newRow);
+    }
+    return result;
+  }
+
+  // دالة توليد المعرّف الفريد
+  function generateUniqueId(row) {
+    const parts = [];
+    UNIQUE_ID_COLUMNS.forEach(col => {
+      const val = String(row[col] || '').trim();
+      if (val) parts.push(val); // نتجاهل القيم الفارغة
+    });
+    return parts.join(UNIQUE_ID_SEPARATOR);
+  }
+
+  async function handleFiles(files, isPdf) {
+    clearLogs(); rawData = []; activeColumns = [];
+    for (const file of files) {
+      try {
+        log(`جاري قراءة ${file.name}...`);
+        const result = isPdf ? await readPdf(file) : await readExcel(file);
+        if (result.rows.length > 0) {
+          const cleanedRows = isPdf ? cleanAndSplit(result.rows) : result.rows;
+          if (cleanedRows.length > 0) {
+            // في حالة الإكسل، نقوم بتوليد المعرّف الفريد أيضاً
+            if (!isPdf) {
+              cleanedRows.forEach(row => {
+                row[UNIQUE_ID_HEADER] = generateUniqueId(row);
+              });
+            }
+            rawData = rawData.concat(cleanedRows);
+            log(`تم قراءة ${cleanedRows.length} صف من ${file.name}`);
+          } else log(`لا توجد بيانات صالحة في ${file.name}`, 'bad');
+        } else log(`لا توجد بيانات في ${file.name}`, 'bad');
+      } catch (e) { log(`خطأ في ${file.name}: ${e.message}`, 'bad'); }
+    }
+
+    if (rawData.length > 0) {
+      BASE_COLS.forEach(col => {
+        activeColumns.push({ original: col, newName: col, selected: col !== 'المسلسل' && col !== 'شهر الإصدار', type: col === UNIQUE_ID_HEADER ? 'id' : 'original' });
+      });
+      $('showPreviewBtn').disabled = false;
+      log('تم التجهيز. اضغط "عرض البيانات".');
+    } else {
+      $('showPreviewBtn').disabled = true;
+    }
+  }
+
+  // --- دوال مُنشئ النماذج (Template Builder) ---
+  function renderBuilder() {
+    $('previewSection').style.display = 'block';
+    renderColumnList();
+    renderTable();
+    loadTemplatesDropdown();
+    $('previewSection').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function renderColumnList() {
+    const container = $('columnControls');
+    container.innerHTML = '';
+    activeColumns.forEach((col, index) => {
+      const div = document.createElement('div');
+      div.className = 'col-item';
+      div.draggable = true;
+      div.dataset.index = index;
+      div.innerHTML = `
+        <span class="drag-handle">≡</span>
+        <input type="checkbox" ${col.selected ? 'checked' : ''} onchange="toggleColumn(${index}, this.checked)">
+        <input type="text" value="${col.newName}" onchange="renameColumn(${index}, this.value)">
+      `;
+      div.addEventListener('dragstart', handleDragStart);
+      div.addEventListener('dragover', handleDragOver);
+      div.addEventListener('drop', handleDrop);
+      div.addEventListener('dragend', handleDragEnd);
+      container.appendChild(div);
+    });
+  }
+
+  let dragSrcIndex = null;
+  function handleDragStart(e) { dragSrcIndex = parseInt(this.dataset.index); this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+  function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+  function handleDrop(e) {
+    e.stopPropagation();
+    const targetIndex = parseInt(this.dataset.index);
+    if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
+      const movedItem = activeColumns.splice(dragSrcIndex, 1)[0];
+      activeColumns.splice(targetIndex, 0, movedItem);
+      renderColumnList(); renderTable();
+    }
+  }
+  function handleDragEnd(e) { this.classList.remove('dragging'); dragSrcIndex = null; }
+
+  window.toggleColumn = (index, checked) => { activeColumns[index].selected = checked; renderTable(); };
+  window.renameColumn = (index, newName) => { activeColumns[index].newName = newName; renderTable(); };
+
+  $('addNewColBtn').addEventListener('click', () => {
+    const name = prompt('اسم العمود الجديد:');
+    if (name && name.trim()) {
+      activeColumns.push({ original: 'NEW_' + Date.now(), newName: name.trim(), selected: true, type: 'new' });
+      renderColumnList(); renderTable();
+    }
+  });
+
+  function renderTable() {
+    const thead = $('previewHead');
+    const tbody = $('previewBody');
+    const selectedCols = activeColumns.filter(c => c.selected);
+    thead.innerHTML = '<tr>' + selectedCols.map(c => `<th>${c.newName}</th>`).join('') + '</tr>';
+    
+    tbody.innerHTML = rawData.map((row, rIdx) => {
+      return '<tr>' + selectedCols.map(c => {
+        let val = row[c.original] || '';
+        return `<td contenteditable="true" data-row="${rIdx}" data-col="${c.original}" data-type="${c.type}" onblur="updateCell(this)">${val}</td>`;
+      }).join('') + '</tr>';
+    }).join('');
+  }
+
+  window.updateCell = (td) => {
+    const rIdx = parseInt(td.dataset.row);
+    const colKey = td.dataset.col;
+    const newVal = td.innerText.trim();
+    if (!rawData[rIdx]) rawData[rIdx] = {};
+    rawData[rIdx][colKey] = newVal;
+    
+    // إذا تم تعديل أحد أعمدة الـ ID، نقوم بإعادة توليده تلقائياً
+    if (UNIQUE_ID_COLUMNS.includes(colKey)) {
+      const newId = generateUniqueId(rawData[rIdx]);
+      rawData[rIdx][UNIQUE_ID_HEADER] = newId;
+      // تحديث الخلية الخاصة بالـ ID في الجدول إذا كانت معروضة
+      const idCell = document.querySelector(`td[data-row="${rIdx}"][data-col="${UNIQUE_ID_HEADER}"]`);
+      if (idCell) idCell.innerText = newId;
+    }
+  };
+
+  function getExportData() {
+    const selectedCols = activeColumns.filter(c => c.selected);
+    if (selectedCols.length === 0) { alert('اختر عموداً واحداً على الأقل'); return null; }
+    return rawData.map(row => {
+      const newRow = {};
+      selectedCols.forEach(c => { newRow[c.newName] = row[c.original] || ''; });
+      return newRow;
+    });
+  }
+
+  // --- إدارة النماذج ---
+  function loadTemplatesDropdown() {
+    const select = $('templateSelect');
+    select.innerHTML = '<option value="">-- اختر نموذج محفوظ --</option>';
+    Object.keys(savedTemplates).forEach(name => {
+      select.innerHTML += `<option value="${name}">${name}</option>`;
+    });
+  }
+
+  $('saveTemplateBtn').addEventListener('click', () => {
+    const name = prompt('اسم النموذج:');
+    if (!name || !name.trim()) return;
+    savedTemplates[name.trim()] = activeColumns.map(c => ({ ...c }));
+    localStorage.setItem('appTemplates', JSON.stringify(savedTemplates));
+    loadTemplatesDropdown();
+    alert('تم الحفظ');
+  });
+
+  $('templateSelect').addEventListener('change', (e) => {
+    const name = e.target.value;
+    if (!name) return;
+    const config = savedTemplates[name];
+    if (config) {
+      activeColumns = config.map(c => ({ ...c }));
+      BASE_COLS.forEach(col => {
+        if (!activeColumns.find(c => c.original === col)) {
+          activeColumns.push({ original: col, newName: col, selected: false, type: col === UNIQUE_ID_HEADER ? 'id' : 'original' });
+        }
+      });
+      renderColumnList(); renderTable();
+    }
+  });
+
+  $('deleteTemplateBtn').addEventListener('click', () => {
+    const name = $('templateSelect').value;
+    if (!name) return alert('اختر نموذجاً');
+    if (confirm(`حذف "${name}"؟`)) {
+      delete savedTemplates[name];
+      localStorage.setItem('appTemplates', JSON.stringify(savedTemplates));
+      loadTemplatesDropdown();
+    }
+  });
+
+  // --- التصدير ---
+  $('exportExcelBtn').addEventListener('click', () => {
+    const data = getExportData();
+    if (!data) return;
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    XLSX.writeFile(wb, `data_${Date.now()}.xlsx`);
+  });
+
+  $('exportCsvBtn').addEventListener('click', () => {
+    const data = getExportData();
+    if (!data) return;
+    const ws = XLSX.utils.json_to_sheet(data);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `data_${Date.now()}.csv`;
+    link.click();
+  });
+
+  // --- ربط الأحداث ---
+  $('pdfIn').addEventListener('change', (e) => { if (e.target.files.length) handleFiles([...e.target.files], true); e.target.value = ''; });
+  $('xlsIn').addEventListener('change', (e) => { if (e.target.files.length) handleFiles([...e.target.files], false); e.target.value = ''; });
+  $('showPreviewBtn').addEventListener('click', () => { if (rawData.length > 0) renderBuilder(); });
+  $('discardBtn').addEventListener('click', () => {
+    if (confirm('إلغاء البيانات؟')) { rawData = []; activeColumns = []; $('previewSection').style.display = 'none'; $('showPreviewBtn').disabled = true; }
+  });
+
+})();
+</script>
+
+
+
+  <!-- تسجيل Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
+
+
+
+
+
+</body>
+</html>
