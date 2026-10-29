@@ -1,24 +1,8 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-
-
-  <!-- إعدادات تطبيق PWA -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0c2233">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2965/2965300.png">
-
-
-
-
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-
-
-
-
-
-
 <title>لوحة الأدمن - مُنشئ النماذج</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -48,10 +32,11 @@ button,input,select{font:inherit;color:inherit}
 main{max-width:1200px;margin:-.9rem auto 2rem;padding:0 1rem}
 .actions{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem; align-items:center;}
 /* Template Builder Layout */
-.builder-layout{display:grid;grid-template-columns:300px 1fr;gap:1rem;margin-top:1rem;}
+.builder-layout{display:grid;grid-template-columns:320px 1fr;gap:1rem;margin-top:1rem;}
 @media(max-width:768px){.builder-layout{grid-template-columns:1fr;}}
 .sidebar{background:var(--paper);padding:1rem;border-radius:12px;border:1px solid var(--line);height:fit-content}
-.sidebar h3{font-size:1rem;margin-bottom:.8rem;border-bottom:2px solid var(--line);padding-bottom:.4rem}
+.sidebar-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;border-bottom:2px solid var(--line);padding-bottom:.4rem}
+.sidebar-header h3{font-size:1rem;margin:0;}
 .col-item{display:flex;align-items:center;gap:.4rem;background:var(--card);padding:.4rem .6rem;border-radius:8px;border:1px solid var(--line);margin-bottom:.4rem;cursor:grab;transition:background .2s}
 .col-item:active{cursor:grabbing}
 .col-item.dragging{opacity:.5;background:var(--line)}
@@ -101,7 +86,10 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
 
     <div class="builder-layout">
       <div class="sidebar">
-        <h3>الأعمدة (اسحب للترتيب)</h3>
+        <div class="sidebar-header">
+          <h3>الأعمدة</h3>
+          <button class="btn small ghost" id="toggleAllColsBtn">تحديد / إلغاء الكل</button>
+        </div>
         <div id="columnControls"></div>
       </div>
       
@@ -115,6 +103,7 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
         <div class="actions">
           <button class="btn" id="exportExcelBtn">تحميل Excel</button>
           <button class="btn ghost" id="exportCsvBtn" style="border-color:var(--ok);color:var(--ok);">تحميل CSV</button>
+          <button class="btn ghost" id="exportJsonBtn" style="border-color:var(--ember);color:var(--ember);">تحميل JSON</button>
           <button class="btn danger" id="discardBtn" style="margin-inline-start:auto;">إلغاء البيانات</button>
         </div>
       </div>
@@ -125,10 +114,9 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
 <script>
 (() => {
   // =====================================================================
-  // ⚙️ إعدادات المعرّف الفريد (Unique ID) - يمكنك تعديلها من هنا
+  // ⚙️ إعدادات المعرّف الفريد (Unique ID) - أرقام نصية متصلة بدون فواصل
   // =====================================================================
   const UNIQUE_ID_COLUMNS = ['محافظة', 'منطقة', 'يومية', 'قطاع', 'بلوك', 'عمارة', 'شقة', 'فرعي'];
-  const UNIQUE_ID_SEPARATOR = '-';
   const UNIQUE_ID_HEADER = 'المعرّف الفريد';
   // =====================================================================
 
@@ -255,25 +243,30 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
         'منطقة': parts[3] || '', 'يومية': parts[4] || '', 'قطاع': parts[5] || '', 'بلوك': parts[6] || '',
         'عمارة': parts[7] || '', 'شقة': parts[8] || '', 'فرعي': parts[9] || '', 'اسم العميل': name, 'المسلسل': serial
       };
-      const fr = newRow['فرعي'];
-      if (!fr || String(fr).trim() === '' || String(fr).toLowerCase() === 'null') continue;
-
-      // توليد المعرّف الفريد هنا
-      newRow[UNIQUE_ID_HEADER] = generateUniqueId(newRow);
       
+      if (newRow['فرعي'] === undefined || newRow['فرعي'] === null || newRow['فرعي'] === '') {
+        newRow['فرعي'] = 'null';
+      }
+
+      newRow[UNIQUE_ID_HEADER] = generateUniqueId(newRow);
       result.push(newRow);
     }
     return result;
   }
 
-  // دالة توليد المعرّف الفريد
+  // دالة توليد المعرّف الفريد (نصي، بدون فواصل، كما هي الأرقام)
   function generateUniqueId(row) {
-    const parts = [];
+    let id = '';
     UNIQUE_ID_COLUMNS.forEach(col => {
-      const val = String(row[col] || '').trim();
-      if (val) parts.push(val); // نتجاهل القيم الفارغة
+      let val = String(row[col] || '').trim();
+      // إذا كانت القيمة null أو فارغة، نضع "0" لكي لا ينكسر طول الـ ID (اختياري)
+      if (val.toLowerCase() === 'null' || val === '') {
+        val = '0'; 
+      }
+      id += val;
     });
-    return parts.join(UNIQUE_ID_SEPARATOR);
+    // إرجاع النص مع علامة اقتباس مفردة لضمان بقائه نصاً في Excel
+    return "'" + id;
   }
 
   async function handleFiles(files, isPdf) {
@@ -285,9 +278,11 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
         if (result.rows.length > 0) {
           const cleanedRows = isPdf ? cleanAndSplit(result.rows) : result.rows;
           if (cleanedRows.length > 0) {
-            // في حالة الإكسل، نقوم بتوليد المعرّف الفريد أيضاً
             if (!isPdf) {
               cleanedRows.forEach(row => {
+                if (row['فرعي'] === undefined || row['فرعي'] === null || row['فرعي'] === '') {
+                  row['فرعي'] = 'null';
+                }
                 row[UNIQUE_ID_HEADER] = generateUniqueId(row);
               });
             }
@@ -300,7 +295,7 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
 
     if (rawData.length > 0) {
       BASE_COLS.forEach(col => {
-        activeColumns.push({ original: col, newName: col, selected: col !== 'المسلسل' && col !== 'شهر الإصدار', type: col === UNIQUE_ID_HEADER ? 'id' : 'original' });
+        activeColumns.push({ original: col, newName: col, selected: true, type: col === UNIQUE_ID_HEADER ? 'id' : 'original' });
       });
       $('showPreviewBtn').disabled = false;
       log('تم التجهيز. اضغط "عرض البيانات".');
@@ -356,6 +351,12 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
   window.toggleColumn = (index, checked) => { activeColumns[index].selected = checked; renderTable(); };
   window.renameColumn = (index, newName) => { activeColumns[index].newName = newName; renderTable(); };
 
+  $('toggleAllColsBtn').addEventListener('click', () => {
+    const allSelected = activeColumns.every(c => c.selected);
+    activeColumns.forEach(c => c.selected = !allSelected);
+    renderColumnList(); renderTable();
+  });
+
   $('addNewColBtn').addEventListener('click', () => {
     const name = prompt('اسم العمود الجديد:');
     if (name && name.trim()) {
@@ -373,6 +374,7 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
     tbody.innerHTML = rawData.map((row, rIdx) => {
       return '<tr>' + selectedCols.map(c => {
         let val = row[c.original] || '';
+        if (val === 'null') val = '<span style="color:var(--bad);font-weight:bold;">null</span>';
         return `<td contenteditable="true" data-row="${rIdx}" data-col="${c.original}" data-type="${c.type}" onblur="updateCell(this)">${val}</td>`;
       }).join('') + '</tr>';
     }).join('');
@@ -381,15 +383,15 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
   window.updateCell = (td) => {
     const rIdx = parseInt(td.dataset.row);
     const colKey = td.dataset.col;
-    const newVal = td.innerText.trim();
+    let newVal = td.innerText.trim();
+    if (newVal.toLowerCase() === 'null') newVal = 'null'; 
+    
     if (!rawData[rIdx]) rawData[rIdx] = {};
     rawData[rIdx][colKey] = newVal;
     
-    // إذا تم تعديل أحد أعمدة الـ ID، نقوم بإعادة توليده تلقائياً
     if (UNIQUE_ID_COLUMNS.includes(colKey)) {
       const newId = generateUniqueId(rawData[rIdx]);
       rawData[rIdx][UNIQUE_ID_HEADER] = newId;
-      // تحديث الخلية الخاصة بالـ ID في الجدول إذا كانت معروضة
       const idCell = document.querySelector(`td[data-row="${rIdx}"][data-col="${UNIQUE_ID_HEADER}"]`);
       if (idCell) idCell.innerText = newId;
     }
@@ -453,6 +455,17 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
     const data = getExportData();
     if (!data) return;
     const ws = XLSX.utils.json_to_sheet(data);
+    // إجبار الأعمدة النصية على البقاء نصية
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cell = ws[XLSX.utils.encode_cell({ c: C, r: R })];
+        if (cell && typeof cell.v === 'string') {
+            cell.t = 's'; // نوع النص
+            cell.z = '@'; // تنسيق النص
+        }
+      }
+    }
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Data');
     XLSX.writeFile(wb, `data_${Date.now()}.xlsx`);
@@ -470,6 +483,17 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
     link.click();
   });
 
+  $('exportJsonBtn').addEventListener('click', () => {
+    const data = getExportData();
+    if (!data) return;
+    const jsonString = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `data_${Date.now()}.json`;
+    link.click();
+  });
+
   // --- ربط الأحداث ---
   $('pdfIn').addEventListener('change', (e) => { if (e.target.files.length) handleFiles([...e.target.files], true); e.target.value = ''; });
   $('xlsIn').addEventListener('change', (e) => { if (e.target.files.length) handleFiles([...e.target.files], false); e.target.value = ''; });
@@ -480,23 +504,5 @@ td[contenteditable="true"]:focus{outline:2px solid var(--flame);background:rgba(
 
 })();
 </script>
-
-
-
-  <!-- تسجيل Service Worker -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('SW registered:', reg.scope))
-          .catch(err => console.log('SW registration failed:', err));
-      });
-    }
-  </script>
-
-
-
-
-
 </body>
 </html>
